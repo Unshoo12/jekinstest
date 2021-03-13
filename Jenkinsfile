@@ -7,12 +7,6 @@ pipeline {
       }
     }
 
-    stage('Build') {
-      steps {
-        git 'https://github.com/Unshoo12/jekinstest.git'
-      }
-    }
-
     stage('Static Check') {
       parallel {
         stage('Static Check') {
