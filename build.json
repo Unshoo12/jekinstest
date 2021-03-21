@@ -1,0 +1,20 @@
+{
+  "filelist": [
+    {
+      "name": "File1",
+      "content": "this is data of File1"
+      },
+    {
+      "name": "File2",
+      "content": "this is data of File2"
+      },
+    {
+      "name": "File3",
+      "content": "this is data of File3"
+      },
+    {
+      "name": "File4",
+      "content": "this is data of File4"
+      }
+  ]
+}
