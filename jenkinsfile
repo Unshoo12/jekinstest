@@ -1,0 +1,184 @@
+  import java.time.*
+  import java.time.format.DateTimeFormatter
+  import groovy.json.JsonSlurper
+  
+  //getting today's date and current year into variables
+  def now = LocalDateTime.now()
+  def year= now.format(DateTimeFormatter.ofPattern("yyyy"))     
+  def today=now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+  //println year
+  //Capturing response from holiday API in a variable 
+  def response = httpRequest acceptType: 'APPLICATION_JSON', contentType: 'APPLICATION_JSON', httpMode: 'GET',httpProxy: "www-proxy-brmdc.us.oracle.com" , url: "https://calendarific.com/api/v2/holidays?&api_key=d20d05ccb411d9ce3b56b654971e17a29b0aa1ed&country=IN&year=${year}"
+  def holiday  
+  string checkbox="${Checkboxes}"   //geting values of all checkbox checked 
+  def buildjson
+  
+  
+pipeline {
+    
+    agent any
+    
+    stages {
+        stage('GIT PULL') 
+        {
+            steps {
+                // Cleaning workspace before build
+                cleanWs()
+                // Get some sample build.json and dummy code from a GitHub repository
+                script {
+                  println "git pull in progress"             
+                 git 'https://github.com/Unshoo12/DemoJava.git'
+                 //git 'https://github.com/Unshoo12/jekinstest.git'
+            
+                       }
+                
+        }
+        }
+        
+        stage('Is the run required')
+        {
+        
+        steps{
+          script{
+           println "Current year is ${year}"
+            //Capture the content of API response in a variable 
+            Jsondata= (response.content)
+            println "today is ${today}"
+            //parse through the json data to check if today is holiday
+           def json = new JsonSlurper().parseText(response.content)
+           holiday= json.response.holidays.date.iso.find{it==today}
+           println holiday  //if no match found in json data for today means to is not a holiday
+                }
+            }
+        }
+        
+         stage('BUILD') 
+        {
+             when {
+                 allOf { 
+                 expression{"${holiday}"=="null"}  //if value is null, its not a holiday today
+                 
+                 }}
+            steps {
+                // Get the sample build.json file from repository
+                script {
+              buildjson = readJSON file: 'build.json', text: '',returnPojo: true
+              //println buildjson.filelist.size()  
+              //create build directory on local workspace and create files inside it based on build.json data
+                  dir ('build') {
+                     for (int i=0; i < buildjson.filelist.size(); i++)
+                      {
+                       writeFile file: "${buildjson.filelist[i].name}", text: "${buildjson.filelist[i].content}"
+                      }
+                   }
+                   //Zip the build directory
+                zip dir: 'build', glob: '', zipFile: 'build.zip'
+               println "In the build stage now"
+                    
+                }
+            }}
+                
+                
+            stage ('parallel'){
+                parallel{
+                    stage ('sequential'){
+                        stages{
+                            
+                        stage('Static check') {
+                 when {
+                 allOf { 
+                //conditions to check if static check checkbox was checked and its not a holiday today     
+                 expression { "${checkbox.contains("Static Check")}" == "true" }
+                 expression{"${holiday}"=="null"}
+                 }
+                  }
+                
+                steps {
+                    //print "${Checkboxes}"
+                    print 'Inside Static check stage now'
+    //creating directory in the stage name and placing the respective text files from the zip file created in the build stage
+                    dir ('Static check') {
+                    unzip dir: '', glob: '', zipFile: '../build.zip'
+                    
+                    }
+                    
+                    }
+            }
+            stage('QA') {
+                 when {
+                 allOf { 
+                //conditions to check if QA checkbox was checked and its not a holiday today
+                 expression { "${checkbox.contains("QA")}" == "true" } 
+                 expression{"${holiday}"=="null"}
+                 
+                 }
+                  }
+                
+                steps {
+                   
+                    //print "${Checkboxes}"
+                    print 'Inside QA stage now'
+    //creating directory in the stage name and placing the respective text files from the zip file created in the build stage
+                    dir ('QA') {
+                    unzip dir: '', glob: '', zipFile: '../build.zip'
+                        }
+                    }
+                
+            }}}
+                
+            
+                
+            stage('Unit test') {
+                 when {
+                 allOf { 
+    //conditions to check if Unit test checkbox was checked and its not a holiday today
+                 expression { "${checkbox.contains("Unit test")}" == "true" }
+                 expression{"${holiday}"=="null"}
+                 
+      
+                 }
+                  }
+                
+                steps {
+                   
+                    print "${Checkboxes}"
+                    print 'Inside Unit test stage now'
+        //creating directory in the stage name and placing the respective text files from the zip file created in the build stage
+                    dir ('Unit test') {
+                    unzip dir: '', glob: '', zipFile: '../build.zip'
+                        }
+                    }
+                
+            }}}
+            stage('Summary') {
+                  steps {
+                      script{
+                          
+            print '**************   Summary starts from here   **************'              
+                
+           // Iterate through the checkbox values and build.json file names to print summary
+            String[] str;
+            str = checkbox.split(',');
+      
+           for( String values : str )
+            {println "In the ${values} stage copied the below files -"
+            for (int i=0; i < buildjson.filelist.size(); i++)
+                      {
+                        println "${buildjson.filelist[i].name}"
+            }    }
+              }
+                }
+             }}
+                  
+                  post {
+  success {
+    emailext body: 'Build completed successfully', recipientProviders: [buildUser()], subject: 'Build success email', to: "${Success_email}"
+    
+  }
+  failure {
+    emailext body: 'Build has failed, please check', recipientProviders: [buildUser()], subject: 'Build Failure email', to: "${Failure_Email}"
+    
+  }
+}
+   
+}
