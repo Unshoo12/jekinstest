@@ -7,8 +7,8 @@
   def year= now.format(DateTimeFormatter.ofPattern("yyyy"))     
   def today=now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
   //println year
-  //Capturing response from holiday API in a variable 
-  def response = httpRequest acceptType: 'APPLICATION_JSON', contentType: 'APPLICATION_JSON', httpMode: 'GET',httpProxy: "www-proxy-brmdc.us.oracle.com" , url: "https://calendarific.com/api/v2/holidays?&api_key=d20d05ccb411d9ce3b56b654971e17a29b0aa1ed&country=IN&year=${year}"
+  //Capturing response from holiday API in a variable add httpProxy: "your VPN related proxy"
+  def response = httpRequest acceptType: 'APPLICATION_JSON', contentType: 'APPLICATION_JSON', httpMode: 'GET', url: "https://calendarific.com/api/v2/holidays?&api_key=d20d05ccb411d9ce3b56b654971e17a29b0aa1ed&country=IN&year=${year}"
   def holiday  
   string checkbox="${Checkboxes}"   //geting values of all checkbox checked 
   def buildjson
